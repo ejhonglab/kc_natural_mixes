@@ -1,0 +1,16 @@
+latex
+jinja2
+ipdb
+
+git+https://github.com/ejhonglab/hong2p
+
+git+https://github.com/ejhonglab/chemutils
+
+git+https://github.com/tom-f-oconnell/drosolf
+
+# Was having a hard time getting an editable install of this to work at one
+# point.
+git+https://github.com/ejhonglab/olfsysm
+
+# If using neuprint to parameterize Matt's model
+git+https://github.com/ejhonglab/neuprint_helper
