@@ -1,6 +1,7 @@
-2020-05-30_BACKUP_model_data.p
-2020-05-30_BACKUP_model_responses.p
 mix_figs/
 output_pickles/
 tom_data_ledger_sheet_link.txt
 mb_team_sheet_link.txt
+*.pdf
+*.p
+kc_mix_traces.csv
