@@ -17,10 +17,6 @@ from drosolf.orns import orns
 import drosolf
 #
 
-# TODO maybe remove nu later, if nh does enough (might be the goal...)
-import neuprint as nu
-import neuprint_helper.util as nhu
-
 import hong2p.util as u
 
 
@@ -36,6 +32,10 @@ def fit_model(frac_responder_df, require_all_components=True, fit_mix=True,
 
     # TODO TODO TODO relax this restriction
     if use_em_connectivity:
+        # TODO maybe remove nu later, if nhu does enough (might be the goal...)
+        import neuprint as nu
+        import neuprint_helper.util as nhu
+
         # slightly easier to start this way, to change less of matt's code
         warnings.warn('setting tune=False because use_em_connectivity (hack)')
         tune = False
@@ -760,17 +760,16 @@ def fit_model(frac_responder_df, require_all_components=True, fit_mix=True,
     orn_abs_rates.index.names = ['odor_set', 'name1']
 
     model_df.set_index(['odor_set', 'name1'], inplace=True)
-    for row in fit_scales.itertuples():
+    for row in odor_metadata.itertuples():
         if pd.isnull(row.fit_hallem_orns_scale):
             model_df.loc[row.Index, 'responded'] = np.nan
     model_df.reset_index(inplace=True)
     # TODO maybe convert 'responded' col to boolean before returning?
 
     # TODO TODO TODO also return PN data.
-    # TODO TODO TODO probaly just return all data i can get out of matt's model
+    # TODO TODO TODO probably just return all data i can get out of matt's model
     # (just check it's working to serialize it and stuff...)
     # (maybe copy or something here to be safe)
-    import ipdb; ipdb.set_trace()
 
     return {
         'model_df': model_df,
