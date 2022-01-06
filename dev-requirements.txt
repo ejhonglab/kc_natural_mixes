@@ -1,23 +1,15 @@
-# This file refers to all the same packages as `requirements.txt`, just all of
-# the custom code is installed in editable mode, from copies assumed to exist
-# locally (at the same level as this repo, i.e. inside ..).
-
-latex
-jinja2
-ipdb
-
-# TODO check all of these still works (tried to convert to setup.py syntax and
-back, while this repo was still part of hong2p, and i forget if there were some
-differences)
+-r common-requirements.txt
 
 -e ../hong2p
+
 -e ../chemutils
+
 -e ../drosolf
 
 # Was having a hard time getting an editable install of this to work at one
 # point.
-#-e ../olfsysm
+#git+https://github.com/ejhonglab/olfsysm
 git+ssh://git@github.com/ejhonglab/olfsysm
 
 # If using neuprint to parameterize Matt's model
--e ../neuprint_helper
+#-e ../neuprint_helper
