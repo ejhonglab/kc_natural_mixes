@@ -32,7 +32,7 @@ from hong2p import viz
 
 # Having all matplotlib-related imports come after `hong2p.util` import,
 # so that I can let `hong2p.util` set the backend, which it seems must be set
-# before the first import of `matplotlib.pyplot`
+# before the first import of `matplotlib.pyplot` (not sure it still does this...)
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import seaborn as sns
@@ -218,7 +218,7 @@ ref_response_percent = 18.6
 ################################################################################
 # These flags affect steps both DURING and AFTER the process_traces calls.
 ################################################################################
-do_pca = False
+do_pca = True
 do_roc = False
 
 # TODO TODO err if one of these flags is true but we are analyzing cached
@@ -251,7 +251,7 @@ odor_and_fit_matrices = False
 # (w/ gridspec probably) + eag too
 avg_traces = False
 
-plot_correlations = False
+plot_correlations = True
 trial_order_correlations = True
 odor_order_correlations = True
 
@@ -281,7 +281,7 @@ mix_v_component_response_plots = False
 plot_mean_correlations = False
 plot_correlation_consistencency = False
 
-model_mixture_responses = False
+model_mixture_responses = True
 
 # This one doesn't depend on our data, just which odors we used.
 hallem_correlations = False
@@ -1172,7 +1172,7 @@ def odor_and_fit_plot(odor_cell_stats, weighted_sum, ordered_cells, fname,
     divider = make_axes_locatable(ax)
     cax = divider.append_axes('left', size='3%', pad=0.5)
 
-    im = viz.matshow(cells_odors_and_fit, xticklabels=labels,
+    _, im = viz.matshow(cells_odors_and_fit, xticklabels=labels,
         xtickrotation=xtickrotation, fontsize=fontsize,
         title=title, ax=f3_axs[0]
     )
@@ -1209,19 +1209,26 @@ def odor_and_fit_plot(odor_cell_stats, weighted_sum, ordered_cells, fname,
 
 # TODO add appropriately formatted descrip of mix to input index cols so it can
 # be used in plotting
-def plot_pca(df, fname=None):
+# TODO TODO remove odors_to_plot kwarg if doesn't end up being useful
+def plot_pca(df, fname=None, odor_col='name1', odors_to_plot=None):
     pca_unstandardized = True
     if pca_unstandardized:
         pca_2 = PCA(n_components=2)
+        #import ipdb; ipdb.set_trace()
         pca_data = pca_2.fit_transform(df)
 
         pca_data = pd.DataFrame(index=df.index, data=pca_data)
         pca_data.rename(columns={0: 'PC1', 1: 'PC2'}, inplace=True)
 
+        plot_data = pca_data.reset_index()
+        if odors_to_plot:
+            plot_data = plot_data[plot_data[odor_col].isin(odors_to_plot)]
+
         f1a = plt.figure()
-        sns.scatterplot(data=pca_data.reset_index(), x='PC1', y='PC2',
-            hue='name1', legend='full'
+        sns.scatterplot(data=plot_data, x='PC1', y='PC2',
+            hue=odor_col, legend='full'
         )
+        del plot_data
         #    hue='sample_type', style='fermented', size='day', legend='full')
         plt.title('PCA on raw data')
 
@@ -1249,6 +1256,8 @@ def plot_pca(df, fname=None):
             print(pc_df.iloc[pc].abs().sort_values(ascending=False)[:10])
         '''
 
+    # TODO TODO TODO TODO is this even a reasonable way of "standardizing"
+    # (i.e. is it just across repeats / should it be?)
     standardizer = StandardScaler()
     df_standardized = standardizer.fit_transform(df)
 
@@ -1276,14 +1285,15 @@ def plot_pca(df, fname=None):
     # rows is how much cell gets of that i-th across-odortrials-PCs?
     pca_data.rename(columns={0: 'PC1', 1: 'PC2'}, inplace=True)
 
+    plot_data = pca_data.reset_index()
+    if odors_to_plot:
+        plot_data = plot_data[plot_data[odor_col].isin(odors_to_plot)]
+
     f2a = plt.figure()
-    # TODO plot trajectories instead of using marker size to indicate time
-    # point
-    # TODO what about day? size? (saturation / alpha would be ideal i think)
-    sns.scatterplot(data=pca_data.reset_index(), x='PC1', y='PC2',
-        hue='name1', legend='full'
+    sns.scatterplot(data=plot_data, x='PC1', y='PC2',
+        hue=odor_col, legend='full'
     )
-        #hue='sample_type', style='fermented', size='day')#, legend='full')
+    del plot_data
 
     plt.title('PCA on standardized data')
 
@@ -1664,7 +1674,7 @@ def add_odor_id(df):
 def process_traces(df_pickle, mean_zchange_response_thresh=None,
     fly2response_threshold=None, ref_odor=None, ref_response_percent=None,
 '''
-def process_traces(df_pickle, fly2response_threshold=None,
+def process_traces(df_pickle, fly2response_threshold=None, being_parallelized=False,
     use_existing_abbrevs=False):
     # TODO refactor so there is actually one function for each real analysis
     # contained in here? or does it just benefit too much from the tight
@@ -1692,7 +1702,11 @@ def process_traces(df_pickle, fly2response_threshold=None,
             )
 
     verbose = True
-    being_parallelized = not type(fly2response_threshold) is dict
+    # TODO TODO TODO fix how this seems to be inverted from reality
+    # (just rename or need to fix logic?)
+    # ACTUALLY, this seems to always be True (whether called w/ -j or not)
+    # (and then can remove kwarg of same name)
+    #being_parallelized = type(fly2response_threshold) is not dict
 
     # TODO maybe factor if verbose: print(out_s); if being_parallelized: ...
     # to internal fn?
@@ -2149,8 +2163,7 @@ def process_traces(df_pickle, fly2response_threshold=None,
             window_trial_stats.to_frame(name=trial_stat), columns='cell',
             index=within_recording_stim_cols, values=trial_stat
         )
-        # TODO TODO add stuff to identify recording to titles (still
-        # relevant?)
+        # TODO TODO TODO maybe focus on just [reliable] responders here [/additionally]?
         pca_df = plot_pca(pivoted_window_trial_stats, fname=fname)
         pca_df.set_index('component_number', inplace=True)
         ret_dict['pca_df'] = add_metadata(df, pca_df)
@@ -2176,8 +2189,8 @@ def process_traces(df_pickle, fly2response_threshold=None,
 
         odor_labels = viz.matlabels(trial_by_cell_stats_top, u.format_mixture)
         # TODO fix x/y in this fn... seems T required
-        f1 = viz.matshow(trial_by_cell_stats_top.T, xticklabels=odor_labels,
-            group_ticklabels=True, colorbar_label=cbar_label, fontsize=6,
+        f1, _ = viz.matshow(trial_by_cell_stats_top.T, xticklabels=odor_labels,
+            group_ticklabels=True, cbar_label=cbar_label, fontsize=6,
             title=title
         )
         ax = plt.gca()
@@ -2194,7 +2207,7 @@ def process_traces(df_pickle, fly2response_threshold=None,
 
         component_names = [x for x in odor_cell_stats.index
             if x not in (('mix',) + u.solvents + u.natural)
-        ] 
+        ]
         # TODO TODO also do on traces as in kc_analysis?
         # or at least per-trial(?) rather than per-mean?
 
@@ -2414,8 +2427,8 @@ def process_traces(df_pickle, fly2response_threshold=None,
     if odor_matrices:
         # TODO TODO modify viz.matshow to take a fn (x/y)labelfn? to generate
         # str labels from row/col indices
-        f2 = viz.matshow(odor_cell_stats_top.T, xticklabels=odor_labels,
-            colorbar_label=cbar_label, fontsize=6, title=title
+        f2, _ = viz.matshow(odor_cell_stats_top.T, xticklabels=odor_labels,
+            cbar_label=cbar_label, fontsize=6, title=title
         )
         ax = plt.gca()
         ax.set_aspect(0.1)
@@ -2578,8 +2591,8 @@ def process_traces(df_pickle, fly2response_threshold=None,
         # in roi / full frame MB fluorescence under each column?
         if odor_matrices:
             odor_cell_stats_top = odor_cell_stats.loc[:, order[:top_n]]
-            fs = viz.matshow(odor_cell_stats_top.T,
-                xticklabels=sort_odor_labels, colorbar_label=cbar_label,
+            fs, _ = viz.matshow(odor_cell_stats_top.T,
+                xticklabels=sort_odor_labels, cbar_label=cbar_label,
                 fontsize=6, title=title
             )
             ax = plt.gca()
@@ -2624,15 +2637,13 @@ if not args.only_analyze_cached:
     trial_stat = 'max'
 
     gsheet_link = u.gsheet_csv_export_link('tom_data_ledger_sheet_link.txt')
-    # TODO maybe factor this into a "single_sheet" kwarg to above?
-    # Adding gid of default sheet.
-    gsheet_link += '0'
     gsheet_df = pd.read_csv(gsheet_link)
     gsheet_df.date = pd.to_datetime(gsheet_df.date)
     gsheet_df = gsheet_df.iloc[:gsheet_df.date.isna().idxmax()]
     gsheet_df.fly_num = gsheet_df.fly_num.astype(np.uint16)
+    reject_keys = ['date','fly_num','thorimage_id']
     rejects = {tuple(x) for _, x in gsheet_df.loc[gsheet_df['reject?'],
-        ['date','fly_num','thorimage_id']].iterrows()
+        reject_keys].iterrows()
     }
 
     # TODO TODO update loop to use this df, and get index values directly from
@@ -2701,6 +2712,58 @@ if not args.only_analyze_cached:
         ref_odor = None
         ref_response_percent = None
 
+
+    # TODO put trace CSV saving behind a (default off) CLI flag or something
+    col_renames = {
+        'name1': 'odor',
+        'log10_conc_vv1': 'log10_conc_vv',
+        'original_name1': 'original_name',
+        'prep_date': 'date',
+    }
+    cols_for_trace_csv = [
+        'odor_set',
+        'date',
+        'fly_num',
+        'thorimage_id',
+        'log10_conc_vv',
+        'odor',
+        'original_name',
+        'repeat_num',
+        'order',
+        'cell',
+        'from_onset',
+        'df_over_f',
+        'raw_f',
+    ]
+    pdfs = []
+    for p in pickles:
+        with open(p, 'rb') as f:
+            pdf = pickle.load(f)
+
+        odor_set = u.odorset_name(pdf)
+        pdf['odor_set'] = odor_set
+
+        pdf = pdf.rename(columns=col_renames)[cols_for_trace_csv]
+
+        reject_key_row = pdf[reject_keys].drop_duplicates()
+        assert len(reject_key_row) == 1
+        if tuple(reject_key_row.iloc[0, :]) in rejects:
+            continue
+
+        pdfs.append(pdf)
+
+    trace_df = pd.concat(pdfs, ignore_index=True)
+
+    # same as `u.add_fly_id`, just that expects 'prep_date', and we've renamed it here
+    trace_df = u.add_group_id(trace_df, ['date','fly_num'], name='fly_id')
+
+    trace_df.drop(columns=['date','fly_num','thorimage_id'], inplace=True)
+
+    first_cols = ['odor_set', 'fly_id']
+    col_order = first_cols + [c for c in trace_df.columns if c not in first_cols]
+    trace_df[col_order].to_csv('kc_mix_traces.csv', index=False)
+    #
+
     # TODO some existing solution to output stdout output of workers in order
     # after map finishes? explore trying to make one w/ redirecting stdout,
     # like: https://stackoverflow.com/questions/5884517 at some point
@@ -2718,8 +2781,9 @@ if not args.only_analyze_cached:
             # data inside calls is making some things take too long. could maybe
             # order to avoid / minimize any need for waiting.
             with manager.Pool() as pool:
+                # The True is for `being_parallelized` kwarg.
                 ret = pool.starmap(
-                    process_traces, product(pickles, [fly2response_threshold])
+                    process_traces, product(pickles, [fly2response_threshold], [True])
                 )
         assert len(ret) == len(pickles)
 
@@ -2757,7 +2821,6 @@ if not args.only_analyze_cached:
     # were otherwise intentionally skipped from the rest of the analysis.
     ret_dicts = [x for x in ret_dicts if x is not None]
 
-
     if fix_ref_odor_response_fracs:
         fly_id2response_thresh = {r['fly_id']: r['mean_zchange_response_thresh']
             for r in ret_dicts
@@ -2775,7 +2838,6 @@ if not args.only_analyze_cached:
         print("Mean of each fly's mean Z-score response threshold: "
             f'{mfrt:.2f}\n'
         )
-
 
     responder_sers = [x['responder_ser'] for x in ret_dicts]
     responders = pd.concat(responder_sers)
@@ -3383,13 +3445,13 @@ if model_mixture_responses:
     from model_mix_responses import fit_model
 
     prefix2fit_kwargs = {
-        #'': dict(),
-        'em_': dict(use_em_connectivity=True),
+        '': dict(),
+        #'em_': dict(use_em_connectivity=True),
     }
 
     # TODO expose in argparse
-    ignore_model_cache = True
-    #ignore_model_cache = False
+    #ignore_model_cache = True
+    ignore_model_cache = False
     # TODO save something about input in filename?
 
     for prefix, fit_kwargs in prefix2fit_kwargs.items():
@@ -3486,22 +3548,28 @@ if model_mixture_responses:
 
             # TODO TODO TODO TODO change titles w/ prefix too!
 
-            fig = viz.matshow(adf, title=f'{oset}\nScaled Hallem ORN vectors')
+            fig, _ = viz.matshow(adf, title=f'{oset}\nScaled Hallem ORN vectors')
             savefigs(fig, f'{prefix}scaled_orns_{oset}',
                 section='Scaled ORN vectors'
             )
 
             # TODO TODO TODO also get unscaled and scaled hallem abs rates!!!
+
+            # (to get unscaled; once hdf is appropriately defined)
+            # (though mix is not here, and not sure if i want to add it via summing or
+            # something)
+            #hdf.loc[comp_order]
+
             '''
-            fig = viz.matshow(adf, xticklabels=odor_labels,
-                group_ticklabels=True, colorbar_label=cbar_label, fontsize=6,
+            fig, _ = viz.matshow(adf, xticklabels=odor_labels,
+                group_ticklabels=True, cbar_label=cbar_label, fontsize=6,
                 title=title
             )
             '''
 
             acdf = adf.T.corr()
             fig = viz.plot_odor_corrs(acdf, odors_in_order=odor_order,
-                colorbar_label=cbar_label,
+                cbar_label=cbar_label,
                 title=f'{oset} components\n\nORN correlations'
             )
             savefigs(fig, f'{prefix}model_orn_corrs_{oset}',
@@ -3529,7 +3597,7 @@ if model_mixture_responses:
             ocdf.columns.name = 'name1'
             #
             fig = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
-                colorbar_label=cbar_label,
+                cbar_label=cbar_label,
                 title=f'{oset} components\n\nModel KC correlations'
             )
             savefigs(fig, f'{prefix}model_kc_corrs_{oset}',
@@ -3537,8 +3605,49 @@ if model_mixture_responses:
             )
         ########################################################################
 
-        plt.show()
-        import ipdb; ipdb.set_trace()
+
+        # TODO refactor to only call this once up top if any of the subsequent code that
+        # uses it would be called
+        from drosolf import orns
+
+        hdf = orns.orns()
+
+        # Just dropping everything that chemutils cant abbrev, since all stuff in
+        # here can be abbreviated that way.
+        hdf.index = hdf.index.map(cu.odor2abbrev)
+        hdf = hdf.loc[hdf.index.dropna()].copy()
+        #
+
+        # TODO TODO TODO check whether the outputs are diff whether i run on the subset
+        # i want or run on all the hallem data and then pull out the subset i care about
+        # (even if they are different and i might want the PCA fit on the full original
+        # data in the non-scaled case, i couldn't do something analagous in the scaled
+        # case...)
+
+        # TODO TODO TODO TODO is this even a reasonable input for PCA? do i not need
+        # replicate measurements of the same thing? and in the KC case, where i had
+        # already done PCA, was how i was running it there appropriate?
+
+        #for oset in odor_set_order:
+        for oset in ('kiwi', 'control'):
+
+            comp_order = [o for o in odor_set2order[oset] if is_component(o)]
+
+            plot_pca(hdf, fname=f'hallem_fitonfull_{oset}',
+                odor_col='odor', odors_to_plot=comp_order
+            )
+
+            oset_hdf_subset = hdf[hdf.index.isin(comp_order)]
+            plot_pca(oset_hdf_subset,
+                fname=f'hallem_subsetfit_{oset}', odor_col='odor',
+                odors_to_plot=comp_order
+            )
+
+            adf = orn_abs_rates.loc[oset]
+            # TODO TODO maybe plot one point per fly (w/ only diff scales), in axes fit
+            # on either full hallem or the subset?
+            plot_pca(adf, fname=f'hallem_scaled_{oset}')
+
 
 # TODO something similar for legends w/ odor set
 odor_set_legend_title = 'Panel'
@@ -4005,7 +4114,7 @@ if hallem_correlations:
         ocdf.columns.name = 'name1'
         #
         fig = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
-            colorbar_label=cbar_label,
+            cbar_label=cbar_label,
             title=f'{oset} components\n\nHallem ORN correlations'
         )
         savefigs(fig, f'hallem_corrs_{oset}', section='Hallem ORN correlations')
@@ -4018,7 +4127,7 @@ if hallem_correlations:
             ocdf.index.name = 'name1'
             ocdf.columns.name = 'name1'
             fig = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
-                colorbar_label=cbar_label,
+                cbar_label=cbar_label,
                 title=f'{oset} components\n\nHallem ORN correlations'
             )
             savefigs(fig, f'hallem_corrs_nonull_{oset}',
@@ -4102,7 +4211,7 @@ if plot_mean_correlations:
                 # real kiwi...  maybe just drop stuff that has less? idk... real
                 # stuff is nice...
                 fig = viz.plot_odor_corrs(p_gdf, odors_in_order=porder,
-                    colorbar_label=cbar_label, title=f'{go}\n\n(n={n})'
+                    cbar_label=cbar_label, title=f'{go}\n\n(n={n})'
                 )
                 savefigs(fig, f'mean_trial_corrs_{tstat}_{go}{noreal_str}',
                     section='Mean KC response correlations, trial-by-trial',
@@ -4110,7 +4219,7 @@ if plot_mean_correlations:
                 )
 
                 fig = viz.plot_odor_corrs(p_mdf, odors_in_order=porder,
-                    colorbar_label=cbar_label, title=f'{go}\n\n(n={n})'
+                    cbar_label=cbar_label, title=f'{go}\n\n(n={n})'
                 )
                 savefigs(fig, f'mean_corrs_{tstat}_{go}{noreal_str}',
                     section='Mean KC response correlations',
