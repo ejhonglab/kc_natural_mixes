@@ -967,105 +967,10 @@ def group_cells_by_odors_responded(responded, per_fly=False, verbose=True,
                     else:
                         print(")")
             print('')
-        
+
         groups.extend(ggroups)
 
     return groups
-
-
-# TODO TODO factor into util / use other places (maybe even in natural_odors)?
-# TODO maybe rename from melt (if that's not the closest-functionality
-# pandas fn)?
-def melt_symmetric(symmetric_df, drop_constant_levels=True,
-    suffixes=('_a', '_b'), name=None, keep_duplicate_values=True):
-    """Takes a symmetric DataFrame to a tidy version with unique values.
-
-    Symmetric means the row and columns indices are equal, and values should
-    be a symmetric matrix.
-    """
-    # TODO flag "checks" or something and check matrix actually is symmetric,
-    # in *values* (as well as index already checked below)
-
-    assert symmetric_df.columns.equals(symmetric_df.index)
-    symmetric_df = symmetric_df.copy()
-    symmetric_df.dropna(how='all', axis=0, inplace=True)
-    symmetric_df.dropna(how='all', axis=1, inplace=True)
-    assert symmetric_df.notnull().all(axis=None), 'not tested w/ non-all NaN'
-
-    # To de-clutter what would otherwise become a highly-nested index.
-    if drop_constant_levels:
-        # TODO may need to call index.remove_unused_levels() first, if using
-        # levels here... (see docs of that remove fn)
-        constant_levels = [n for n, levels in zip(symmetric_df.index.names,
-            symmetric_df.index.levels) if len(levels) == 1
-        ]
-        symmetric_df = symmetric_df.droplevel(constant_levels, axis=0)
-        symmetric_df = symmetric_df.droplevel(constant_levels, axis=1)
-
-    # TODO adapt to work in non-multiindex case too! (rename there?)
-    symmetric_df.index.rename([n + suffixes[0] for n in
-        symmetric_df.index.names], inplace=True
-    )
-    symmetric_df.columns.rename([n + suffixes[1] for n in
-        symmetric_df.columns.names], inplace=True
-    )
-
-    # TODO maybe an option to interleave the new index names
-    # (so it's like name1_a, name1_b, ... rather than *_a, *_b)
-    # or would that not ever really be useful?
-
-    if keep_duplicate_values:
-        tidy = symmetric_df.stack(level=symmetric_df.columns.names)
-        assert tidy.shape == (np.prod(symmetric_df.shape),)
-    else:
-        # From: https://stackoverflow.com/questions/34417685
-        keep = np.triu(np.ones(symmetric_df.shape)).astype('bool')
-        masked = symmetric_df.where(keep)
-        n_nonnull = masked.notnull().sum().sum()
-        # We already know both elements of shape are the same from equality
-        # check on indices above.
-        n = symmetric_df.shape[0]
-        # The right expression is the number of elements expected for the
-        # triangular of a square matrix w/ side length n, if the diagonal
-        # is INCLUDED.
-        assert n_nonnull == (n * (n + 1) / 2)
-
-        # TODO make sure this also still works in non-multiindex case!
-        tidy = masked.stack(level=masked.columns.names)
-        assert tidy.shape == (n_nonnull,)
-
-    tidy.name = name
-    return tidy
-
-
-# TODO rename if it could make it more accurate
-def invert_melt_symmetric(ser, suffixes=('_a', '_b')):
-    """
-    """
-    assert len(ser.shape) == 1, 'not a series'
-    assert len(ser.index.names) == len(set(ser.index.names)), \
-        'index names should be unique'
-
-    assert len(suffixes) == 2 and len(set(suffixes)) == 2
-    s0, s1 = suffixes
-
-    levels_to_drop = set(ser.index.names)
-    col_prefixes = []
-    for c in ser.index.names:
-        if type(c) is not str:
-            continue
-
-        if c.endswith(s0):
-            prefix = c[:-len(s0)]
-            if (prefix + s1) in ser.index.names:
-                col_prefixes.append(prefix)
-                levels_to_drop.remove(prefix + s0)
-                levels_to_drop.remove(prefix + s1)
-
-    levels_to_drop = list(levels_to_drop)
-    # This does also work in the case where `levels_to_drop` is empty.
-    ser = ser.droplevel(levels_to_drop)
-    return ser.unstack([p + s0 for p in col_prefixes])
 
 
 # TODO update to include case where there are multiple time points for each
@@ -1434,6 +1339,7 @@ ax_id2order = dict()
 # conditions can lack of order make a wrong plot???
 # actually facetgrid made as above shares labels still... (was just
 # g.set_xticklabels that cased the problem in this case)
+# TODO TODO TODO factor this (/ something like it) to hong2p[/natmix].viz?
 def with_odor_order(plot_fn, **fn_kwargs):
     def ordered_plot_fn(*args, unsafe_skip_hue_checks=False, **kwargs):
         for fk, fv in fn_kwargs.items():
@@ -2085,7 +1991,7 @@ def process_traces(df_pickle, fly2response_threshold=None, being_parallelized=Fa
             # affected by missing odors?
             # TODO exclude 3/4 of these from latex / don't compute at all
             if trial_order_correlations:
-                porder_corr_mean_fig = viz.plot_odor_corrs(
+                porder_corr_mean_fig, _ = viz.plot_odor_corrs(
                     odor_corrs_from_means, title_suffix=title_suffix
                 )
                 out_s = savefigs(porder_corr_mean_fig, 'porder_corr_mean',
@@ -2093,7 +1999,7 @@ def process_traces(df_pickle, fly2response_threshold=None, being_parallelized=Fa
                 )
                 out_strs.append(out_s)
 
-                porder_corr_max_fig = viz.plot_odor_corrs(
+                porder_corr_max_fig, _ = viz.plot_odor_corrs(
                     odor_corrs_from_maxes, trial_stat='max',
                     title_suffix=title_suffix
                 )
@@ -2103,7 +2009,7 @@ def process_traces(df_pickle, fly2response_threshold=None, being_parallelized=Fa
                 out_strs.append(out_s)
 
             if odor_order_correlations:
-                oorder_corr_mean_fig = viz.plot_odor_corrs(
+                oorder_corr_mean_fig, _ = viz.plot_odor_corrs(
                     odor_corrs_from_means, odors_in_order=odor_order,
                     title_suffix=title_suffix
                 )
@@ -2112,7 +2018,7 @@ def process_traces(df_pickle, fly2response_threshold=None, being_parallelized=Fa
                 )
                 out_strs.append(out_s)
 
-                oorder_corr_max_fig = viz.plot_odor_corrs(
+                oorder_corr_max_fig, _ = viz.plot_odor_corrs(
                     odor_corrs_from_maxes, trial_stat='max',
                     odors_in_order=odor_order,
                     title_suffix=title_suffix
@@ -2128,14 +2034,14 @@ def process_traces(df_pickle, fly2response_threshold=None, being_parallelized=Fa
                 )
                 out_strs.append(out_s)
 
-        tidy_corrs_from_means = melt_symmetric(odor_corrs_from_means,
-            name='corr'
+        tidy_corrs_from_means = u.melt_symmetric(odor_corrs_from_means,
+            name='corr', keep_duplicate_values=True
         )
         ret_dict['correlation_ser_from_means'] = \
             add_metadata(df, tidy_corrs_from_means)
 
-        tidy_corrs_from_maxes = melt_symmetric(odor_corrs_from_maxes,
-            name='corr'
+        tidy_corrs_from_maxes = u.melt_symmetric(odor_corrs_from_maxes,
+            name='corr', keep_duplicate_values=True
         )
 
         ret_dict['correlation_ser_from_maxes'] = \
@@ -2637,6 +2543,7 @@ if not args.only_analyze_cached:
     trial_stat = 'max'
 
     gsheet_link = u.gsheet_csv_export_link('tom_data_ledger_sheet_link.txt')
+    import ipdb; ipdb.set_trace()
     gsheet_df = pd.read_csv(gsheet_link)
     gsheet_df.date = pd.to_datetime(gsheet_df.date)
     gsheet_df = gsheet_df.iloc[:gsheet_df.date.isna().idxmax()]
@@ -3450,8 +3357,8 @@ if model_mixture_responses:
     }
 
     # TODO expose in argparse
-    #ignore_model_cache = True
-    ignore_model_cache = False
+    ignore_model_cache = True
+    #ignore_model_cache = False
     # TODO save something about input in filename?
 
     for prefix, fit_kwargs in prefix2fit_kwargs.items():
@@ -3471,8 +3378,9 @@ if model_mixture_responses:
             # model, so i can actually use these caches elsewhere without needed
             # all the preceding code to be working, while still being able to
             # know what was fit and how
-            with open(model_output_cache, 'wb') as f:
-                pickle.dump(data, f)
+            # TODO TODO TODO TODO uncomment
+            #with open(model_output_cache, 'wb') as f:
+            #    pickle.dump(data, f)
 
         model_df = data['model_df']
 
@@ -3485,7 +3393,7 @@ if model_mixture_responses:
 
         # TODO TODO why was the scaling process apparently not able to get
         # model_df.groupby(['odor_set','name1']).responded.sum() to have a
-        # closer ordering (~activtion strength) to my data? something i could do
+        # closer ordering (~activation strength) to my data? something i could do
         # differently? are we at some floor / ceiling in the scaling? (not still
         # true, is it?)
         # TODO TODO without apparently changing anything, the problem seems to
@@ -3568,7 +3476,7 @@ if model_mixture_responses:
             '''
 
             acdf = adf.T.corr()
-            fig = viz.plot_odor_corrs(acdf, odors_in_order=odor_order,
+            fig, _ = viz.plot_odor_corrs(acdf, odors_in_order=odor_order,
                 cbar_label=cbar_label,
                 title=f'{oset} components\n\nORN correlations'
             )
@@ -3596,7 +3504,7 @@ if model_mixture_responses:
             ocdf.index.name = 'name1'
             ocdf.columns.name = 'name1'
             #
-            fig = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
+            fig, _ = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
                 cbar_label=cbar_label,
                 title=f'{oset} components\n\nModel KC correlations'
             )
@@ -4113,7 +4021,7 @@ if hallem_correlations:
         ocdf.index.name = 'name1'
         ocdf.columns.name = 'name1'
         #
-        fig = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
+        fig, _ = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
             cbar_label=cbar_label,
             title=f'{oset} components\n\nHallem ORN correlations'
         )
@@ -4126,7 +4034,7 @@ if hallem_correlations:
             ocdf = odf.T.corr()
             ocdf.index.name = 'name1'
             ocdf.columns.name = 'name1'
-            fig = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
+            fig, _ = viz.plot_odor_corrs(ocdf, odors_in_order=odor_order,
                 cbar_label=cbar_label,
                 title=f'{oset} components\n\nHallem ORN correlations'
             )
@@ -4171,12 +4079,12 @@ if plot_mean_correlations:
             odor_order = odor_set2order[go]
             n = n_per_odorset[go]
 
-            gdf = invert_melt_symmetric(gser)
+            gdf = u.invert_melt_symmetric(gser)
 
             # TODO TODO TODO TODO for these, should probably not average over
             # the correlations between trials and themselves, right (since they
             # are always 1...)?
-            mdf = invert_melt_symmetric(gser.groupby(name_cols).mean())
+            mdf = u.invert_melt_symmetric(gser.groupby(name_cols).mean())
 
             for no_real in (False, True):
                 noreal_str = '_noreal' if no_real else ''
@@ -4210,7 +4118,7 @@ if plot_mean_correlations:
                 # being misleading since some odors like pfo have less...  or
                 # real kiwi...  maybe just drop stuff that has less? idk... real
                 # stuff is nice...
-                fig = viz.plot_odor_corrs(p_gdf, odors_in_order=porder,
+                fig, _ = viz.plot_odor_corrs(p_gdf, odors_in_order=porder,
                     cbar_label=cbar_label, title=f'{go}\n\n(n={n})'
                 )
                 savefigs(fig, f'mean_trial_corrs_{tstat}_{go}{noreal_str}',
@@ -4218,7 +4126,7 @@ if plot_mean_correlations:
                     exclude_from_latex=no_real
                 )
 
-                fig = viz.plot_odor_corrs(p_mdf, odors_in_order=porder,
+                fig, _ = viz.plot_odor_corrs(p_mdf, odors_in_order=porder,
                     cbar_label=cbar_label, title=f'{go}\n\n(n={n})'
                 )
                 savefigs(fig, f'mean_corrs_{tstat}_{go}{noreal_str}',

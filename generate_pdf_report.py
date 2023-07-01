@@ -257,14 +257,9 @@ def compile_tex_to_pdf(latex_str, pdf_fname, verbose, gen_latex_msg=None):
         raise
 
 
-def pop_with_default(d, k, default=None):
-    if k in d:
-        return d.pop(k)
-    else:
-        return default
-
-
 test_tex_fname = 'test.tex'
+# TODO TODO why not just have defaults in keyword arguments like a normal person...
+# was there actually a good reason?
 def main(*args, **kwargs):
     verbose = False
     write_latex_for_testing = False
@@ -273,16 +268,16 @@ def main(*args, **kwargs):
     date_in_pdf_name = True
     last_inputs_pickle_fname = '.last_inputs_genpdfreport.p'
 
-    debug = pop_with_default(kwargs, 'debug', False)
+    debug = kwargs.pop('debug', False)
     if debug:
         verbose = True
         write_latex_for_testing = True
 
-    filename_captions = pop_with_default(kwargs, 'filename_captions', debug)
+    filename_captions = kwargs.pop('filename_captions', debug)
 
-    rerun_last_inputs = pop_with_default(kwargs, 'rerun_last_inputs', False)
-    only_recompile_test_tex = pop_with_default(kwargs, 'only_recompile', False)
-    pdf_fname = pop_with_default(kwargs, 'file')
+    rerun_last_inputs = kwargs.pop('rerun_last_inputs', False)
+    only_recompile_test_tex = kwargs.pop('only_recompile', False)
+    pdf_fname = kwargs.pop('file')
     # TODO TODO TODO add some test to check output is same w/ this as if call
     # comes as it just did from kc_mix_analysis. they seem to differ in the 
     # "Input" section now (at least in some cases)
@@ -313,7 +308,7 @@ def main(*args, **kwargs):
     # Here and below, popping from kwargs rather than using an explicit separate
     # keyword argument so that it is still saved in last inputs in above
     # pickling. Default of None means to use all matching files.
-    filenames_to_use = pop_with_default(kwargs, 'filenames')
+    filenames_to_use = kwargs.pop('filenames')
     if filenames_to_use is not None:
         # Any matching files will have to also be present in here.
         filenames_to_use = {split(p)[1] for p in filenames_to_use}
@@ -329,16 +324,14 @@ def main(*args, **kwargs):
     # these are not passed in kwargs
 
     # These will all be stacked top to bottom.
-    section_names_and_globstrs = pop_with_default(
-        kwargs, 'section_names_and_globstrs', []
-    )
+    section_names_and_globstrs = kwargs.pop('section_names_and_globstrs', [])
     # These will be lined up in two columns, with one odor_set in left column
     # and the other in the right column.
-    paired_section_names_and_globstrs = pop_with_default(
-        kwargs, 'paired_section_names_and_globstrs', []
+    paired_section_names_and_globstrs = kwargs.pop(
+        'paired_section_names_and_globstrs', []
     )
 
-    pagebreak_after = pop_with_default(kwargs, 'pagebreak_after', set())
+    pagebreak_after = kwargs.pop('pagebreak_after', set())
 
     sections = [(n, glob_plots(gs, filenames_to_use)) for n, gs
         in section_names_and_globstrs

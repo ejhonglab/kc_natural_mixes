@@ -24,6 +24,7 @@ import tifffile
 import matplotlib.pyplot as plt
 
 from hong2p import util, thor, matlab, db
+from hong2p.roi import fit_circle_rois, load_template_data
 
 
 ################################################################################
@@ -154,6 +155,9 @@ analysis_output_root = util.analysis_output_root()
 
 stimfile_root = util.stimfile_root()
 
+# TODO check this file actually contained what i thought it did. i'm not sure where
+# ~half of the odors are coming from nor whether the concentrations are what i am
+# expecting for this context
 natural_odors_concentrations = pd.read_csv('natural_odor_panel_vial_concs.csv')
 natural_odors_concentrations.set_index('name', inplace=True)
 
@@ -461,7 +465,7 @@ for full_fly_dir in glob.glob(raw_data_root + '/*/*/'):
 
 if fit_rois:
     print('Fitting ROIs...')
-    template_data = util.load_template_data()
+    template_data = load_template_data()
     if template_data is None:
         warnings.warn('template data not found, so can not fit_rois')
     else:
@@ -503,7 +507,7 @@ if fit_rois:
                 # TODO TODO check if analysis is ticked in df (gsheet)
 
                 try:
-                    util.fit_circle_rois(tif, template_data, write_ijrois=True,
+                    fit_circle_rois(tif, template_data, write_ijrois=True,
                         overwrite=True
                     )
                 except RuntimeError as e:

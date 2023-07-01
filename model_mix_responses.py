@@ -195,8 +195,7 @@ def fit_model(frac_responder_df, require_all_components=True, fit_mix=True,
 
     # TODO delete this + code that generates it, if i don't end up using
     odor_metadata = pd.DataFrame(odor_metadata_list)
-    odor_metadata['fit_hallem_orns_scale']= \
-        np.zeros(len(odor_metadata)) * np.nan
+    odor_metadata['fit_hallem_orns_scale'] = np.zeros(len(odor_metadata)) * np.nan
 
     oi_ser = odor_metadata.oi
     # Showing there are no gaps.
@@ -207,6 +206,10 @@ def fit_model(frac_responder_df, require_all_components=True, fit_mix=True,
 
     del target_response_frac, mean_frac_responding, oi
     target_response_fracs = np.array(target_response_fracs)
+
+    # TODO TODO TODO try using data from hallem at the lower concentrations of odors i
+    # have in that dataset (at least top 2 components of both control and kiwi mixes, i
+    # believe)
 
     len_before = len(orn_deltas)
     assert orn_deltas.shape[1] == 110
@@ -236,10 +239,9 @@ def fit_model(frac_responder_df, require_all_components=True, fit_mix=True,
     else:
         print('TUNE')
 
-    # TODO TODO why do i set this w/ above??? (i'm pretty sure i had a reason,
-    # but i'm forgetting what it was)
-    # TODO TODO TODO maybe set this to NaN / some null value in em connectivity
-    # case, to ensure it doesn't get used (or that it errs if it is used)
+    # Was getting this from tmp_mp above in tune case, because since I'm not calling
+    # osm.load_hc_data here (why though? just to be sure I know what the input data is),
+    # this isn't set.
     mp.kc.cxn_distrib = kc_cxn_distrib
 
     # TODO TODO want to save any of the other things?
@@ -256,7 +258,7 @@ def fit_model(frac_responder_df, require_all_components=True, fit_mix=True,
 
     # Note Matt's 2020-02-02 commit (Which I think he didn't push until
     # ~2020-05-30, but honestly I'm not sure. Github says it was updated more
-    # recently than last commit.)
+    # recently than last commit.) (?)
     # Tune thresholds/the APL to the Hallem odors only
     # TODO TODO TODO disable if kwarg tune=False
     mp.kc.tune_from = range(110)
@@ -401,6 +403,7 @@ def fit_model(frac_responder_df, require_all_components=True, fit_mix=True,
     # inform modifications to ORN representation)
 
     # After this point the responses to the Hallem set won't change
+    # (because we pass False as the 3rd arg to run_KC_sims)
     assert orn_deltas.shape[1] > 110, 'no new odors to sim'
 
     sfr = sfr.iloc[:, 0]
